@@ -1,0 +1,28 @@
+# systemd unit for the pasture server (the "run the native binary" path — an
+# alternative to running it as a Docker container). Install to
+# /etc/systemd/system/pasture-server.service, then:
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now pasture-server
+# It auto-restarts on crash (TZ: supervisor), and starts on boot.
+
+[Unit]
+Description=Sheeeeps pasture server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# The compiled binary from `dart compile exe bin/server.dart`.
+ExecStart=/opt/sheeeeps/pasture-server
+WorkingDirectory=/opt/sheeeeps
+Environment=PORT=8080
+Restart=always
+RestartSec=3
+# Run as an unprivileged user you created (see DEPLOY.md).
+User=sheeeeps
+Group=sheeeeps
+# stdout/stderr → journald (view with: journalctl -u pasture-server -f).
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

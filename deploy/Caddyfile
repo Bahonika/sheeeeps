@@ -1,0 +1,13 @@
+# Caddy reverse proxy: terminates TLS and forwards to the local pasture server,
+# so browsers connect over wss:// (required — an https:// page cannot open a
+# plaintext ws:// socket).
+#
+# 1. Point a domain's DNS A/AAAA record at this VM's public IP.
+# 2. Replace pasture.example.com below with that domain.
+# 3. Caddy auto-provisions a free Let's Encrypt certificate on first request.
+#
+# Caddy upgrades WebSocket connections transparently — no extra config needed.
+
+pasture.example.com {
+	reverse_proxy localhost:8080
+}
