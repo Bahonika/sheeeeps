@@ -64,6 +64,12 @@ class PastureClientNetInteractor
   double _clock = 0;
   bool _ended = false;
 
+  // Latest un-sent move target (coalesced) and the steady flush timer. Only the
+  // newest target matters, so a fast drag collapses to one send per tick.
+  double? _pendingMoveX;
+  double? _pendingMoveY;
+  Timer? _moveTimer;
+
   StreamSubscription<Uint8List>? _inboundSub;
   StreamSubscription<void>? _closedSub;
 
@@ -85,6 +91,10 @@ class PastureClientNetInteractor
     }
     _inboundSub = _client.inbound.listen(_onMessage);
     _closedSub = _client.closed.listen((_) => _fail('Связь с сервером потеряна'));
+    _moveTimer = Timer.periodic(
+      Duration(milliseconds: GameConfig.moveSendMillis),
+      (_) => _flushMove(),
+    );
     _client.send(NetCodec.encode(
       ClientHello(
         protocolVersion: GameConfig.protocolVersion,
@@ -95,6 +105,7 @@ class PastureClientNetInteractor
 
   @override
   Future<void> dispose() async {
+    _moveTimer?.cancel();
     await _inboundSub?.cancel();
     await _closedSub?.cancel();
   }
@@ -102,8 +113,22 @@ class PastureClientNetInteractor
   // ── Input port (local → server) ─────────────────────────────────────────────
 
   @override
-  void moveTo(double worldX, double worldY) =>
-      _client.send(NetCodec.encode(ClientMove(worldX, worldY)));
+  void moveTo(double worldX, double worldY) {
+    // Coalesce: remember only the newest target; the timer sends it. A 60–120 Hz
+    // drag thus becomes ≤ [GameConfig.moveSendHz] sends/sec, well under the
+    // server's rate-limit, so the dog tracks the cursor smoothly.
+    _pendingMoveX = worldX;
+    _pendingMoveY = worldY;
+  }
+
+  void _flushMove() {
+    final x = _pendingMoveX;
+    final y = _pendingMoveY;
+    if (x == null || y == null) return;
+    _pendingMoveX = null;
+    _pendingMoveY = null;
+    _client.send(NetCodec.encode(ClientMove(x, y)));
+  }
 
   @override
   void bark() => _client.send(NetCodec.encode(const ClientBark()));

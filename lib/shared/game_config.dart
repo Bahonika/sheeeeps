@@ -140,6 +140,15 @@ class GameConfig {
   /// dropped (TZ устойчивость).
   static const int maxCommandsPerSecond = 20;
 
+  /// The web client coalesces mouse-drag targets and sends only the newest at
+  /// this steady rate (only the latest target matters, so nothing is lost). It
+  /// stays safely under [maxCommandsPerSecond] and leaves headroom for barks.
+  /// Sending one command per pointer event (60–120/s) instead gets throttled in
+  /// bursts by the server's rate-limiter, making the dog lurch about once a
+  /// second during a continuous drag.
+  static const int moveSendHz = 15;
+  static int get moveSendMillis => (1000 / moveSendHz).round();
+
   /// Server simulation tick rate while ≥1 shepherd is present. With zero players
   /// the driver drops to [idleTickHz] (nobody to fear — accuracy is pointless,
   /// saves CPU) and instantly restores full rate when someone joins.
