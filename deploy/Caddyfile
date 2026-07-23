@@ -1,13 +1,28 @@
-# Caddy reverse proxy: terminates TLS and forwards to the local pasture server,
-# so browsers connect over wss:// (required — an https:// page cannot open a
-# plaintext ws:// socket).
+# Caddy config for the all-in-one Yandex Cloud VM: serves the web client (static
+# files) and proxies the game WebSocket to the local server, terminating TLS so
+# browsers connect over https/wss. See DEPLOY.md.
 #
-# 1. Point a domain's DNS A/AAAA record at this VM's public IP.
-# 2. Replace pasture.example.com below with that domain.
-# 3. Caddy auto-provisions a free Let's Encrypt certificate on first request.
-#
-# Caddy upgrades WebSocket connections transparently — no extra config needed.
+# 1. Point a domain's DNS at this VM's public IP (e.g. a free DuckDNS subdomain).
+# 2. Replace sheeeeps.duckdns.org below with that domain.
+# 3. Put the built web client in /var/www/pasture (scp of build/web).
+# Caddy auto-provisions a free Let's Encrypt certificate on first request.
 
-pasture.example.com {
-	reverse_proxy localhost:8080
+sheeeeps.duckdns.org {
+	# WebSocket upgrades go to the game server…
+	@ws {
+		header Connection *Upgrade*
+		header Upgrade    websocket
+	}
+	handle @ws {
+		reverse_proxy localhost:8080
+	}
+	handle /health {
+		reverse_proxy localhost:8080
+	}
+	# …everything else is the static web client.
+	handle {
+		root * /var/www/pasture
+		try_files {path} /index.html
+		file_server
+	}
 }
